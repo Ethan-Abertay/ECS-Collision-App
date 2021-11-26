@@ -2,8 +2,10 @@
 
 #include <iostream>
 #include <chrono>
-#include "SFML/Graphics.hpp"
+#include <stdlib.h>     /* srand, rand */
+#include <time.h>       /* time */
 
+#include "SFML/Graphics.hpp"
 #include "../../../ECS-Library/ECS/ECS/ECS.h"
 
 typedef std::chrono::high_resolution_clock Clock;
@@ -27,7 +29,9 @@ private:
 	sf::Event e;
 	ECS *ecs = 0;
 	sf::RectangleShape rectangle;
-	
+	sf::Text fps_text;
+	sf::Font arialFont;
+
 	// Variables
 	float DeltaTime = 0.f;
 	float FPS = 0.f;
