@@ -29,11 +29,16 @@ namespace s
 		static void process(ECS& ecs, float DeltaTime)
 		{
 			// Get relevent entities
-			auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Transform>();
+			//auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Transform>();
+			auto compMask = ecs.getCompMask<c::Transform>();
 
 			// Loop through entities
-			for (auto& entityID : *entitiesWithComponents)
+			for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
 			{
+				// Test if correct type of entity
+				if (!ecs.entityHasComponents(entityID, compMask))
+					continue;
+
 				// Get this entity's components
 				auto* transform = ecs.getEntitysComponent<c::Transform>(entityID);
 
@@ -101,10 +106,10 @@ namespace s
 				auto offsetBottom = abs(bottom1 - top2);
 
 				// Determine which direction to bounce
-				bool collideRight = offsetRight < offsetLeft&& offsetRight < offsetTop&& offsetRight < offsetBottom;
-				bool collideLeft = offsetLeft < offsetRight&& offsetLeft < offsetTop&& offsetLeft < offsetBottom;
-				bool collideTop = offsetTop < offsetRight&& offsetTop < offsetLeft&& offsetTop < offsetBottom;
-				bool collideBottom = offsetBottom < offsetRight&& offsetBottom < offsetLeft&& offsetBottom < offsetTop;
+				bool collideRight = offsetRight < offsetLeft && offsetRight < offsetTop && offsetRight < offsetBottom;
+				bool collideLeft = offsetLeft < offsetRight && offsetLeft < offsetTop && offsetLeft < offsetBottom;
+				bool collideTop = offsetTop < offsetRight && offsetTop < offsetLeft && offsetTop < offsetBottom;
+				bool collideBottom = offsetBottom < offsetRight && offsetBottom < offsetLeft && offsetBottom < offsetTop;
 
 				//cout << "right " << collideRight << " left " << collideLeft << " top " << collideTop << " bottom " << collideBottom << endl;
 
@@ -148,6 +153,7 @@ namespace s
 			//return;
 
 			// Get relevent entities
+			// This has embedded for loops and is likely faster with this method
 			auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Transform>();
 
 			// Loop through entities
@@ -188,11 +194,16 @@ namespace eps
 		};
 
 		// Get relevent entities
-		auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Transform, c::RenderData>();
+		//auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Transform, c::RenderData>();
+		auto compMask = ecs.getCompMask<c::Transform>();
 
 		// Loop through entities
-		for (auto& entityID : *entitiesWithComponents)
+		for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
 		{
+			// Test if correct type of entity
+			if (!ecs.entityHasComponents(entityID, compMask))
+				continue;
+
 			// Get components
 			auto* transform = ecs.getEntitysComponent<c::Transform>(entityID);
 
@@ -208,10 +219,15 @@ namespace eps
 
 	static void renderRectangle(ECS& ecs, float DeltaTime, sf::RenderWindow* window, sf::RectangleShape& rectangle)
 	{
-		auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::RenderData>();
+		//auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::RenderData>();
+		auto compMask = ecs.getCompMask<c::Transform>();
 
-		for (auto& entityID : *entitiesWithComponents)
+		for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
 		{
+			// Test if correct type of entity
+			if (!ecs.entityHasComponents(entityID, compMask))
+				continue;
+
 			// Get components
 			auto* transform = ecs.getEntitysComponent<c::Transform>(entityID);
 			auto* renderData = ecs.getEntitysComponent<c::RenderData>(entityID);

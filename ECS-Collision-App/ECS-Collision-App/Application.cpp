@@ -4,7 +4,7 @@
 Application::Application()
 {
 	// Create window
-	window = new sf::RenderWindow(sf::VideoMode(800, 800), "Collision App");
+	window = new sf::RenderWindow(sf::VideoMode(2560, 1440), "Collision App", sf::Style::Default);
 
 	// srand
 	srand(time(0));
@@ -37,11 +37,12 @@ Application::Application()
 	const float maxSize = 10.f;
 
 	// Iniitalise entities
-	for (int i = 0; i < 3000; ++i)
+	const int entityCount = 10;
+	for (int i = 0; i < entityCount; ++i)
 	{
 		// Create entity - assign comps
-		auto id = ecs->createEntity();
-		ecs->assignComps<c::Transform, c::RenderData>(id);
+		auto id = ecs->createEntity<c::Transform, c::RenderData>();
+		//ecs->assignComps<c::Transform, c::RenderData>(id);
 
 		// Randomise transform
 		auto* transform = ecs->getEntitysComponent<c::Transform>(id);
