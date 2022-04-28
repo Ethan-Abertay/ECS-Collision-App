@@ -1,8 +1,15 @@
 #pragma once
 
+// Macro to decide whether to run with a grouped Transform component,
+// or, if undefined, to run as seperate components
+// This is application specific, not ECS library
+#define GROUPED
+//#undef GROUPED
+
 // c for components
 namespace c
 {
+#ifdef GROUPED
 	// The transform component
 	struct Transform
 	{
@@ -13,12 +20,28 @@ namespace c
 		sf::Vector2f velocity = sf::Vector2f(0.f, 0.f);
 		sf::Vector2f acceleration = sf::Vector2f(0.f, 0.f);
 	};
-
-	struct RenderData
+#else
+	struct Position
 	{
-		RenderData() = default;
-
+		Position() = default;
+		sf::Vector2f position = sf::Vector2f(0.f, 0.f);
 	};
+	struct Size
+	{
+		Size() = default;
+		sf::Vector2f size = sf::Vector2f(80.f, 80.f);
+	};
+	struct Velocity
+	{
+		Velocity() = default;
+		sf::Vector2f velocity = sf::Vector2f(0.f, 0.f);
+	};
+	struct Acceleration
+	{
+		Acceleration() = default;
+		sf::Vector2f acceleration = sf::Vector2f(0.f, 0.f);
+	};
+#endif
 }
 
 // s for systems
@@ -30,7 +53,11 @@ namespace s
 		{
 			// Get relevent entities
 			//auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Transform>();
+#ifdef GROUPED
 			auto compMask = ecs.getCompMask<c::Transform>();
+#else
+			auto compMask = ecs.getCompMask<c::Acceleration, c::Velocity, c::Position>();
+#endif
 
 			// Loop through entities
 			for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
@@ -39,15 +66,23 @@ namespace s
 				if (!ecs.entityHasComponents(entityID, compMask))
 					continue;
 
+#ifdef GROUPED
 				// Get this entity's components
 				auto* transform = ecs.getEntitysComponent<c::Transform>(entityID);
 
 				// Process this component
 				transform->velocity += transform->acceleration * DeltaTime;
 				transform->position += transform->velocity * DeltaTime;
-				//cout << position->position.x << endl;
+#else
+				// Get components
+				auto& position = ecs.getEntitysComponent<c::Position>(entityID)->position;
+				auto& velocity = ecs.getEntitysComponent<c::Velocity>(entityID)->velocity;
+				auto& acceleration = ecs.getEntitysComponent<c::Acceleration>(entityID)->acceleration;
 
-				//cout << "Vel " << transform->velocity.x << endl;
+				// Process components
+				velocity += acceleration * DeltaTime;
+				position += velocity * DeltaTime;
+#endif
 			}
 		}
 	};
@@ -80,16 +115,17 @@ namespace s
 			}
 		}
 
-		static void handleCollision(c::Transform& transform1, c::Transform& transform2)
+		//static void handleCollision(c::Transform& transform1, c::Transform& transform2)
+		static void handleCollision(sf::Vector2f &position1, sf::Vector2f &position2, sf::Vector2f& velocity1, sf::Vector2f& velocity2, sf::Vector2f& acceleration1, sf::Vector2f& acceleration2, const sf::Vector2f &size1, const sf::Vector2f &size2)
 		{
-			auto left1 = transform1.position.x;
-			auto right1 = left1 + transform1.size.x;
-			auto top1 = transform1.position.y;
-			auto bottom1 = top1 + transform1.size.y;
-			auto left2 = transform2.position.x;
-			auto right2 = left2 + transform2.size.x;
-			auto top2 = transform2.position.y;
-			auto bottom2 = top2 + transform2.size.y;
+			auto left1 = position1.x;
+			auto right1 = left1 + size1.x;
+			auto top1 = position1.y;
+			auto bottom1 = top1 + size1.y;
+			auto left2 = position2.x;
+			auto right2 = left2 + size2.x;
+			auto top2 = position2.y;
+			auto bottom2 = top2 + size2.y;
 
 			bool overlapX = (right1 > left2 && right1 < right2) || (left1 > left2 && left1 < right2) || (right2 > left1 && right2 < right1) || (left2 > left1 && left2 < right1);
 			bool overlapY = (bottom1 > top2 && bottom1 < bottom2) || (top1 > top2 && top1 < bottom2) || (bottom2 > top1 && bottom2 < bottom1) || (top2 > top1 && top2 < bottom1);
@@ -116,34 +152,34 @@ namespace s
 				if (collideRight)
 				{
 					// Move
-					transform1.position.x -= offsetRight / 2.f;
-					transform2.position.x += offsetRight / 2.f;
+					position1.x -= offsetRight / 2.f;
+					position2.x += offsetRight / 2.f;
 
-					postCollision(transform1.velocity.x, transform1.acceleration.x, transform2.velocity.x, transform2.acceleration.x);
+					postCollision(velocity1.x, acceleration1.x, velocity2.x, acceleration2.x);
 				}
 				else if (collideLeft)
 				{
 					// Move
-					transform1.position.x -= offsetLeft / 2.f;
-					transform2.position.x += offsetLeft / 2.f;
+					position1.x -= offsetLeft / 2.f;
+					position2.x += offsetLeft / 2.f;
 
-					postCollision(transform1.velocity.x, transform1.acceleration.x, transform2.velocity.x, transform2.acceleration.x);
+					postCollision(velocity1.x, acceleration1.x, velocity2.x, acceleration2.x);
 				}
 				else if (collideTop)
 				{
 					// Move
-					transform1.position.y -= offsetTop / 2.f;
-					transform2.position.y += offsetTop / 2.f;
+					position1.y -= offsetTop / 2.f;
+					position2.y += offsetTop / 2.f;
 
-					postCollision(transform1.velocity.y, transform1.acceleration.y, transform2.velocity.y, transform2.acceleration.y);
+					postCollision(velocity1.y, acceleration1.y, velocity2.y, acceleration2.y);
 				}
 				else if (collideBottom)
 				{
 					// Move
-					transform1.position.y -= offsetBottom / 2.f;
-					transform2.position.y += offsetBottom / 2.f;
+					position1.y -= offsetBottom / 2.f;
+					position2.y += offsetBottom / 2.f;
 
-					postCollision(transform1.velocity.y, transform1.acceleration.y, transform2.velocity.y, transform2.acceleration.y);
+					postCollision(velocity1.y, acceleration1.y, velocity2.y, acceleration2.y);
 				}
 			}
 		}
@@ -154,17 +190,35 @@ namespace s
 
 			// Get relevent entities
 			// This has embedded for loops and is likely faster with this method
+#ifdef GROUPED
 			auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Transform>();
-
+#else
+			auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Position, c::Acceleration, c::Size, c::Velocity>();
+#endif
 			// Loop through entities
 			for (int i = 0; i < entitiesWithComponents->size(); ++i)
 			{
 				for (int j = i + 1; j < entitiesWithComponents->size(); ++j)
 				{
+#ifdef GROUPED
+					// Get components
 					auto* transform1 = ecs.getEntitysComponent<c::Transform>(entitiesWithComponents->at(i));
 					auto* transform2 = ecs.getEntitysComponent<c::Transform>(entitiesWithComponents->at(j));
 
-					handleCollision(*transform1, *transform2);
+					handleCollision(transform1->position, transform2->position, transform1->velocity, transform2->velocity, transform1->acceleration, transform2->acceleration, transform1->size, transform2->size);
+#else
+					// Get components
+					auto* position1 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(i));
+					auto* position2 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(j));
+					auto* velocity1 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(i));
+					auto* velocity2 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(j));
+					auto* acceleration1 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(i));
+					auto* acceleration2 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(j));
+					auto* size1 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(i));
+					auto* size2 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(j));
+
+					handleCollision(position1->position, position2->position, velocity1->velocity, velocity2->velocity, acceleration1->acceleration, acceleration2->acceleration, size1->size, size2->size);
+#endif
 				}
 			}
 		}
@@ -177,25 +231,28 @@ namespace eps
 	static void checkBoundaryCollision(ECS& ecs, sf::RenderWindow* window)
 	{
 		// Lambda to handle boundaries
-		auto process = [](float* pos, float* vel, float* acc, const float width, const float size)
+		auto process = [](float& pos, float& vel, float& acc, const float width, const float size)
 		{
-			if (*pos < 0)
+			if (pos < 0)
 			{
-				*pos = 0;
-				*vel *= -1.f;
-				*acc *= -1.f;
+				pos = 0;
+				vel *= -1.f;
+				acc *= -1.f;
 			}
-			else if (*pos + width >= size)
+			else if (pos + width >= size)
 			{
-				*pos = size - width;
-				*vel *= -1.f;
-				*acc *= -1.f;
+				pos = size - width;
+				vel *= -1.f;
+				acc *= -1.f;
 			}
 		};
 
 		// Get relevent entities
-		//auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Transform, c::RenderData>();
+#ifdef GROUPED
 		auto compMask = ecs.getCompMask<c::Transform>();
+#else
+		auto compMask = ecs.getCompMask<c::Position, c::Size, c::Acceleration, c::Velocity>();
+#endif
 
 		// Loop through entities
 		for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
@@ -204,23 +261,35 @@ namespace eps
 			if (!ecs.entityHasComponents(entityID, compMask))
 				continue;
 
+#ifdef GROUPED
 			// Get components
 			auto* transform = ecs.getEntitysComponent<c::Transform>(entityID);
 
-			// Get variables
-			auto* position = &transform->position;
-			auto* size = &transform->size;
+			// Process variables
+			process(transform->position.x, transform->velocity.x, transform->acceleration.x, transform->size.x, window->getSize().x);
+			process(transform->position.y, transform->velocity.y, transform->acceleration.y, transform->size.y, window->getSize().y);
+#else
+			// Get components
+			auto& position = ecs.getEntitysComponent<c::Position>(entityID)->position;
+			auto& size = ecs.getEntitysComponent<c::Size>(entityID)->size;
+			auto& velocity = ecs.getEntitysComponent<c::Velocity>(entityID)->velocity;
+			auto& acceleration = ecs.getEntitysComponent<c::Acceleration>(entityID)->acceleration;
 
 			// Process variables
-			process(&position->x, &transform->velocity.x, &transform->acceleration.x, size->x, window->getSize().x);
-			process(&position->y, &transform->velocity.y, &transform->acceleration.y, size->y, window->getSize().y);
+			process(position.x, velocity.x, acceleration.x, size.x, window->getSize().x);
+			process(position.y, velocity.y, acceleration.y, size.y, window->getSize().y);
+#endif
 		}
 	}
 
 	static void renderRectangle(ECS& ecs, float DeltaTime, sf::RenderWindow* window, sf::RectangleShape& rectangle)
 	{
 		//auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::RenderData>();
+#ifdef GROUPED
 		auto compMask = ecs.getCompMask<c::Transform>();
+#else
+		auto compMask = ecs.getCompMask<c::Position, c::Size>();
+#endif
 
 		for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
 		{
@@ -228,14 +297,22 @@ namespace eps
 			if (!ecs.entityHasComponents(entityID, compMask))
 				continue;
 
+#ifdef GROUPED
 			// Get components
 			auto* transform = ecs.getEntitysComponent<c::Transform>(entityID);
-			auto* renderData = ecs.getEntitysComponent<c::RenderData>(entityID);
 
 			// Process information
 			rectangle.setPosition(transform->position);
 			rectangle.setSize(transform->size);
+#else
+			// Get components
+			auto& position = ecs.getEntitysComponent<c::Position>(entityID)->position;
+			auto& size = ecs.getEntitysComponent<c::Size>(entityID)->size;
 
+			// Process information
+			rectangle.setPosition(position);
+			rectangle.setSize(size);
+#endif
 			window->draw(rectangle);
 		}
 	}
