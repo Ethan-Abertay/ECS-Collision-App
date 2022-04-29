@@ -1,5 +1,8 @@
 #pragma once
 
+#include "SFML/Graphics.hpp"
+#include "EntityManager.h"
+
 // Macro to decide whether to run with a grouped Transform component,
 // or, if undefined, to run as seperate components
 // This is application specific, not ECS library
@@ -42,6 +45,12 @@ namespace c
 		sf::Vector2f acceleration = sf::Vector2f(0.f, 0.f);
 	};
 #endif
+
+	struct Health
+	{
+		Health() = default;
+		int8_t health = 0;
+	};
 }
 
 // s for systems
@@ -86,10 +95,25 @@ namespace s
 			}
 		}
 	};
+};
 
-	struct EntityCollision
+// es for extra parameter systems
+namespace eps
+{
+	static void EntityCollision(ECS& ecs, float DeltaTime, EntityManager* entityManager)
 	{
-		static void postCollision(float& vel1, float& acc1, float& vel2, float& acc2)
+		// Lambdas
+		auto processHealth = [&](EntityID id)
+		{
+			auto& health = ecs.getEntitysComponent<c::Health>(id)->health;
+			health--;
+			if (health <= 0)
+			{
+				ecs.destroyEntity(id);		// Destroy entity now
+				entityManager->addTimer();	// Add respawn timer
+			}
+		};
+		auto postCollision = [&](float& vel1, float& acc1, float& vel2, float& acc2, EntityID id1, EntityID id2)
 		{
 			// Handle vel and acc
 			if (vel1 * vel2 < 0)	// If travelling in opposite directions
@@ -113,10 +137,12 @@ namespace s
 					acc2 *= -1.f;
 				}
 			}
-		}
 
-		//static void handleCollision(c::Transform& transform1, c::Transform& transform2)
-		static void handleCollision(sf::Vector2f &position1, sf::Vector2f &position2, sf::Vector2f& velocity1, sf::Vector2f& velocity2, sf::Vector2f& acceleration1, sf::Vector2f& acceleration2, const sf::Vector2f &size1, const sf::Vector2f &size2)
+			// Process health
+			processHealth(id1);
+			processHealth(id2);
+		};
+		auto handleCollision = [&](sf::Vector2f& position1, sf::Vector2f& position2, sf::Vector2f& velocity1, sf::Vector2f& velocity2, sf::Vector2f& acceleration1, sf::Vector2f& acceleration2, const sf::Vector2f& size1, const sf::Vector2f& size2, EntityID id1, EntityID id2)
 		{
 			auto left1 = position1.x;
 			auto right1 = left1 + size1.x;
@@ -142,10 +168,10 @@ namespace s
 				auto offsetBottom = abs(bottom1 - top2);
 
 				// Determine which direction to bounce
-				bool collideRight = offsetRight < offsetLeft && offsetRight < offsetTop && offsetRight < offsetBottom;
-				bool collideLeft = offsetLeft < offsetRight && offsetLeft < offsetTop && offsetLeft < offsetBottom;
-				bool collideTop = offsetTop < offsetRight && offsetTop < offsetLeft && offsetTop < offsetBottom;
-				bool collideBottom = offsetBottom < offsetRight && offsetBottom < offsetLeft && offsetBottom < offsetTop;
+				bool collideRight = offsetRight < offsetLeft&& offsetRight < offsetTop&& offsetRight < offsetBottom;
+				bool collideLeft = offsetLeft < offsetRight&& offsetLeft < offsetTop&& offsetLeft < offsetBottom;
+				bool collideTop = offsetTop < offsetRight&& offsetTop < offsetLeft&& offsetTop < offsetBottom;
+				bool collideBottom = offsetBottom < offsetRight&& offsetBottom < offsetLeft&& offsetBottom < offsetTop;
 
 				//cout << "right " << collideRight << " left " << collideLeft << " top " << collideTop << " bottom " << collideBottom << endl;
 
@@ -155,7 +181,7 @@ namespace s
 					position1.x -= offsetRight / 2.f;
 					position2.x += offsetRight / 2.f;
 
-					postCollision(velocity1.x, acceleration1.x, velocity2.x, acceleration2.x);
+					postCollision(velocity1.x, acceleration1.x, velocity2.x, acceleration2.x, id1, id2);
 				}
 				else if (collideLeft)
 				{
@@ -163,7 +189,7 @@ namespace s
 					position1.x -= offsetLeft / 2.f;
 					position2.x += offsetLeft / 2.f;
 
-					postCollision(velocity1.x, acceleration1.x, velocity2.x, acceleration2.x);
+					postCollision(velocity1.x, acceleration1.x, velocity2.x, acceleration2.x, id1, id2);
 				}
 				else if (collideTop)
 				{
@@ -171,7 +197,7 @@ namespace s
 					position1.y -= offsetTop / 2.f;
 					position2.y += offsetTop / 2.f;
 
-					postCollision(velocity1.y, acceleration1.y, velocity2.y, acceleration2.y);
+					postCollision(velocity1.y, acceleration1.y, velocity2.y, acceleration2.y, id1, id2);
 				}
 				else if (collideBottom)
 				{
@@ -179,55 +205,53 @@ namespace s
 					position1.y -= offsetBottom / 2.f;
 					position2.y += offsetBottom / 2.f;
 
-					postCollision(velocity1.y, acceleration1.y, velocity2.y, acceleration2.y);
+					postCollision(velocity1.y, acceleration1.y, velocity2.y, acceleration2.y, id1, id2);
 				}
 			}
-		}
+		};
 
-		static void process(ECS& ecs, float DeltaTime)
+		// Get relevent entities
+		// This has embedded for loops and is likely faster with this method
+#ifdef GROUPED
+		auto compMask = ecs.getCompMask<c::Transform>();
+#else
+		auto compMask = ecs.getCompMask<c::Position, c::Size, c::Acceleration, c::Velocity>();
+#endif
+		// Loop through entities
+		for (int i = 0; i < ecs.getNoOfEntities(); ++i)
 		{
-			//return;
+			// Test if correct type of entity
+			if (!ecs.entityHasComponents(i, compMask))
+				continue;
 
-			// Get relevent entities
-			// This has embedded for loops and is likely faster with this method
-#ifdef GROUPED
-			auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Transform>();
-#else
-			auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Position, c::Acceleration, c::Size, c::Velocity>();
-#endif
-			// Loop through entities
-			for (int i = 0; i < entitiesWithComponents->size(); ++i)
+			for (int j = i + 1; j < ecs.getNoOfEntities(); ++j)
 			{
-				for (int j = i + 1; j < entitiesWithComponents->size(); ++j)
-				{
+				// Test if correct type of entity
+				if (!ecs.entityHasComponents(j, compMask))
+					continue;
 #ifdef GROUPED
-					// Get components
-					auto* transform1 = ecs.getEntitysComponent<c::Transform>(entitiesWithComponents->at(i));
-					auto* transform2 = ecs.getEntitysComponent<c::Transform>(entitiesWithComponents->at(j));
+				// Get components
+				auto* transform1 = ecs.getEntitysComponent<c::Transform>(i);
+				auto* transform2 = ecs.getEntitysComponent<c::Transform>(j);
 
-					handleCollision(transform1->position, transform2->position, transform1->velocity, transform2->velocity, transform1->acceleration, transform2->acceleration, transform1->size, transform2->size);
+				handleCollision(transform1->position, transform2->position, transform1->velocity, transform2->velocity, transform1->acceleration, transform2->acceleration, transform1->size, transform2->size, i, j);
 #else
-					// Get components
-					auto* position1 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(i));
-					auto* position2 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(j));
-					auto* velocity1 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(i));
-					auto* velocity2 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(j));
-					auto* acceleration1 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(i));
-					auto* acceleration2 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(j));
-					auto* size1 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(i));
-					auto* size2 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(j));
+				// Get components
+				auto* position1 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(i));
+				auto* position2 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(j));
+				auto* velocity1 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(i));
+				auto* velocity2 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(j));
+				auto* acceleration1 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(i));
+				auto* acceleration2 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(j));
+				auto* size1 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(i));
+				auto* size2 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(j));
 
-					handleCollision(position1->position, position2->position, velocity1->velocity, velocity2->velocity, acceleration1->acceleration, acceleration2->acceleration, size1->size, size2->size);
+				handleCollision(position1->position, position2->position, velocity1->velocity, velocity2->velocity, acceleration1->acceleration, acceleration2->acceleration, size1->size, size2->size, i, j);
 #endif
-				}
 			}
 		}
-	};
-};
+	}
 
-// es for extra parameter systems
-namespace eps
-{
 	static void checkBoundaryCollision(ECS& ecs, sf::RenderWindow* window)
 	{
 		// Lambda to handle boundaries

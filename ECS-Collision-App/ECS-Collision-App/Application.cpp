@@ -1,13 +1,15 @@
 #include "Application.h"
 #include "ComponentsAndSystems.h"
+#include "EntityManager.h"
 
 Application::Application()
 {
 	// Create window
-	window = new sf::RenderWindow(sf::VideoMode(2560, 1440), "Collision App", sf::Style::Default);
+	window = new sf::RenderWindow(sf::VideoMode(2560, 1440), "Collision App", sf::Style::Fullscreen);
 
 	// srand
-	srand(time(0));
+	//srand(time(0));
+	srand(0);
 
 	// Get Font and text
 	bool result = arialFont.loadFromFile("arial.ttf");
@@ -19,67 +21,23 @@ Application::Application()
 	// Initialise ECS
 	ecs = new ECS();
 
+	// Create the entity manager 
+	entityManager = new EntityManager(window);
+
 	// Initialise components
+	ecs->initComponents<c::Health>();
 #ifdef GROUPED
 	ecs->initComponents<c::Transform>();
 #else
 	ecs->initComponents<c::Position, c::Acceleration, c::Size, c::Velocity>();
 #endif
 
-	// Rand range
-	auto randRange = [](float min, float max) -> float
-	{
-		auto normalizedFloat = (float)(rand()) / (float)(RAND_MAX);	// Between 0.f and 1.f
-		return min + ((max - min) * normalizedFloat);
-	};
-
-	const float width = window->getSize().x;
-	const float height = window->getSize().y;
-	const float maxVel = 100.f;
-	const float maxAcc = 25.f;
-	const float minSize = 5.f;
-	const float maxSize = 10.f;
-
 	// Iniitalise entities
 	const int entityCount = 3000;
 	for (int i = 0; i < entityCount; ++i)
 	{
-#ifdef GROUPED
-
-		// Create entity - assign comps
-		auto id = ecs->createEntity<c::Transform>();
-		//ecs->assignComps<c::Transform, c::RenderData>(id);
-
-				// Randomise transform
-		auto* transform = ecs->getEntitysComponent<c::Transform>(id);
-		transform->position = sf::Vector2f(randRange(0, width), randRange(0, height));
-		transform->velocity = sf::Vector2f(randRange(-maxVel, maxVel), randRange(-maxVel, maxVel));
-		//transform->acceleration = sf::Vector2f(randRange(-maxAcc, maxAcc), randRange(-maxAcc, maxAcc));
-		transform->size = sf::Vector2f(randRange(minSize, maxSize), randRange(minSize, maxSize));
-#else
-		auto id = ecs->createEntity<c::Position, c::Acceleration, c::Size, c::Velocity>();
-
-		// Randomize data
-		ecs->getEntitysComponent<c::Position>(id)->position = sf::Vector2f(randRange(0, width), randRange(0, height));
-		ecs->getEntitysComponent<c::Velocity>(id)->velocity = sf::Vector2f(randRange(-maxVel, maxVel), randRange(-maxVel, maxVel));
-		ecs->getEntitysComponent<c::Size>(id)->size = sf::Vector2f(randRange(minSize, maxSize), randRange(minSize, maxSize));
-#endif
-
+		entityManager->spawnNewEntity(*ecs);
 	}
-
-	//auto id = ecs->createEntity();
-	//ecs->assignComps<c::Transform, c::RenderData>(id);
-	//auto* transform = ecs->getEntitysComponent<c::Transform>(id);
-	//transform->position = sf::Vector2f(400-50, 0);
-	//transform->velocity = sf::Vector2f(0, -200);
-	//transform->size = sf::Vector2f(100, 50);
-
-	//id = ecs->createEntity();
-	//ecs->assignComps<c::Transform, c::RenderData>(id);
-	//transform = ecs->getEntitysComponent<c::Transform>(id);
-	//transform->position = sf::Vector2f(400-25, 800);
-	//transform->velocity = sf::Vector2f(0, 200);
-	//transform->size = sf::Vector2f(50, 50);
 
 	// Create rectangle asset
 	rectangle.setOutlineColor(sf::Color::Red);
@@ -92,10 +50,21 @@ Application::~Application()
 	if (window)
 		delete window;
 	window = 0;
+
+	if (ecs)
+		delete ecs;
+	ecs = 0;
+
+	if (entityManager)
+		delete entityManager;
+	entityManager = 0;
 }
 
 void Application::run()
 {
+	// Length of time to run test in seconds
+	float testTime = 15;
+
 	while (window->isOpen())
 	{
 		// Record start time
@@ -110,9 +79,29 @@ void Application::run()
 		// Calculate Delta Time - Number of microseconds converted to float then divided by 1,000 twice to get delta time in seconds
 		DeltaTime = (float)(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) / 1000.f / 1000.f;
 
+		// Add delta time to record
+		deltaTimes.push_back(DeltaTime);
+
 		// Calculate fps
 		FPS = 1.f / DeltaTime;
 		
+		// Decrement test time
+		testTime -= DeltaTime;
+
+		// Test if done
+		if (testTime <= 0.f)
+		{
+			// Record output
+			std::ofstream file;
+			file.open("Output.csv");
+			for (auto& f : deltaTimes)
+				file << f << std::endl;
+			file.close();
+
+			// Close window (hence application)
+			window->close();
+		}
+
 		//std::cout << "DeltaTime " << DeltaTime << " FPS " << FPS << std::endl;
 	}
 }
@@ -136,10 +125,14 @@ void Application::updateInputs()
 void Application::update()
 {
 	// Handle standard systems
-	ecs->processSystems<s::Translation, s::EntityCollision>(DeltaTime);
+	ecs->processSystems<s::Translation>(DeltaTime);
 
 	// Handle extra systems
+	eps::EntityCollision(*ecs, DeltaTime, entityManager);
 	eps::checkBoundaryCollision(*ecs, window);
+
+	// Handle entity manager
+	entityManager->process(*ecs, DeltaTime);
 }
 
 void Application::render()

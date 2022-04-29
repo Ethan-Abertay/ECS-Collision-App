@@ -4,6 +4,8 @@
 #include <chrono>
 #include <stdlib.h>     /* srand, rand */
 #include <time.h>       /* time */
+#include <fstream>
+#include <vector>
 
 #include "SFML/Graphics.hpp"
 #include "../../../ECS-Library/ECS/ECS/ECS.h"
@@ -28,9 +30,13 @@ private:
 	sf::RenderWindow* window = 0;
 	sf::Event e;
 	ECS *ecs = 0;
+	class EntityManager* entityManager = 0;
 	sf::RectangleShape rectangle;
 	sf::Text fps_text;
 	sf::Font arialFont;
+
+	// Timer variables
+	std::vector<float> deltaTimes;
 
 	// Variables
 	float DeltaTime = 0.f;
