@@ -26,6 +26,7 @@ Application::Application()
 
 	// Initialise components
 	ecs->initComponents<c::Health>();
+
 #ifdef GROUPED
 	ecs->initComponents<c::Transform>();
 #else
