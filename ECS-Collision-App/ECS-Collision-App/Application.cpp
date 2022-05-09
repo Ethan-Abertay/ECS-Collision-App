@@ -25,7 +25,7 @@ Application::Application()
 	entityManager = new EntityManager(window);
 
 	// Initialise components
-	ecs->initComponents<c::Health>();
+	ecs->initComponents<c::Health, c::Healer, c::Attacker>();
 
 #ifdef GROUPED
 	ecs->initComponents<c::Transform>();
@@ -34,11 +34,13 @@ Application::Application()
 #endif
 
 	// Iniitalise entities
-	const int entityCount = 3000;
-	for (int i = 0; i < entityCount; ++i)
-	{
-		entityManager->spawnNewEntity(*ecs);
-	}
+	entityManager->initSpawnEntities(*ecs);
+
+#if IMPL == 3
+
+	ecs->performFullRefactor();
+
+#endif
 
 	// Create rectangle asset
 	rectangle.setOutlineColor(sf::Color::Red);

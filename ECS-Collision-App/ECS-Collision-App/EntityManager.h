@@ -15,9 +15,13 @@ public:
 	void process(ECS& ecs, float DeltaTime);
 	void addTimer();
 	void spawnNewEntity(ECS& ecs);
+	void initSpawnEntities(ECS& ecs);
 
 protected:
 	float randRange(float min, float max);
+	void spawnNormal(ECS& ecs, bool init);
+	void spawnHealer(ECS& ecs, bool init);
+	void spawnAttacker(ECS& ecs, bool init);
 
 	sf::RenderWindow* window = 0;
 

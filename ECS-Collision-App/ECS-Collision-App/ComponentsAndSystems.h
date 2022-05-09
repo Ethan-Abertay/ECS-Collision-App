@@ -51,6 +51,18 @@ namespace c
 		Health() = default;
 		int8_t health = 0;
 	};
+
+	struct Healer
+	{
+		Healer() = default;
+		uint8_t heal = 0;
+	};
+
+	struct Attacker
+	{
+		Attacker() = default;
+		uint8_t damage = 0;
+	};
 }
 
 // s for systems
@@ -61,20 +73,8 @@ namespace s
 		static void process(ECS& ecs, float DeltaTime)
 		{
 			// Get relevent entities
-			//auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::Transform>();
-#ifdef GROUPED
-			auto compMask = ecs.getCompMask<c::Transform>();
-#else
-			auto compMask = ecs.getCompMask<c::Acceleration, c::Velocity, c::Position>();
-#endif
-
-			// Loop through entities
-			for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
+			auto processEntity = [&](EntityID entityID)
 			{
-				// Test if correct type of entity
-				if (!ecs.entityHasComponents(entityID, compMask))
-					continue;
-
 #ifdef GROUPED
 				// Get this entity's components
 				auto* transform = ecs.getEntitysComponent<c::Transform>(entityID);
@@ -92,26 +92,68 @@ namespace s
 				velocity += acceleration * DeltaTime;
 				position += velocity * DeltaTime;
 #endif
+			};
+
+#if IMPL != 3
+
+#ifdef GROUPED
+			auto compMask = ecs.getCompMask<c::Transform>();
+#else
+			auto compMask = ecs.getCompMask<c::Acceleration, c::Velocity, c::Position>();
+#endif
+
+			// Loop through entities
+			for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
+			{
+				// Test if correct type of entity
+				if (!ecs.entityHasComponents(entityID, compMask))
+					continue;
+
+				processEntity(entityID);
 			}
 		}
+
+#elif IMPL == 3
+
+			for (auto group : ecs.getEntityGroups())
+			{
+				for (int i = group->startIndex; i <= group->getEndIndex(); i++)
+				{
+					processEntity(i);
+				}
+			}
+
+#endif
+		}
+
 	};
 };
 
-// es for extra parameter systems
+// eps for extra parameter systems
 namespace eps
 {
 	static void EntityCollision(ECS& ecs, float DeltaTime, EntityManager* entityManager)
 	{
 		// Lambdas
-		auto processHealth = [&](EntityID id)
+		auto healthModification = [&](EntityID id, int16_t amount)
 		{
 			auto& health = ecs.getEntitysComponent<c::Health>(id)->health;
-			health--;
+			health += amount;
 			if (health <= 0)
 			{
 				ecs.destroyEntity(id);		// Destroy entity now
 				entityManager->addTimer();	// Add respawn timer
 			}
+		};
+		auto processHealth = [&](EntityID id1, EntityID id2)
+		{
+			// If 1 is attacker
+			if (ecs.entityHasComponents(id1, ecs.getCompMask<c::Attacker>()))
+				healthModification(id2, ecs.getEntitysComponent<c::Attacker>(id1)->damage);
+			else if (ecs.entityHasComponents(id1, ecs.getCompMask<c::Healer>()))
+				healthModification(id2, ecs.getEntitysComponent<c::Healer>(id1)->heal);
+			else
+				healthModification(id2, -1);
 		};
 		auto postCollision = [&](float& vel1, float& acc1, float& vel2, float& acc2, EntityID id1, EntityID id2)
 		{
@@ -138,9 +180,9 @@ namespace eps
 				}
 			}
 
-			// Process health
-			processHealth(id1);
-			processHealth(id2);
+			// Process health 
+			processHealth(id1, id2);
+			processHealth(id2, id1);
 		};
 		auto handleCollision = [&](sf::Vector2f& position1, sf::Vector2f& position2, sf::Vector2f& velocity1, sf::Vector2f& velocity2, sf::Vector2f& acceleration1, sf::Vector2f& acceleration2, const sf::Vector2f& size1, const sf::Vector2f& size2, EntityID id1, EntityID id2)
 		{
@@ -209,9 +251,32 @@ namespace eps
 				}
 			}
 		};
+		auto processTwoEntities = [&](EntityID i, EntityID j)
+		{
+#ifdef GROUPED
+			// Get components
+			auto* transform1 = ecs.getEntitysComponent<c::Transform>(i);
+			auto* transform2 = ecs.getEntitysComponent<c::Transform>(j);
+
+			handleCollision(transform1->position, transform2->position, transform1->velocity, transform2->velocity, transform1->acceleration, transform2->acceleration, transform1->size, transform2->size, i, j);
+#else
+			// Get components
+			auto* position1 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(i));
+			auto* position2 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(j));
+			auto* velocity1 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(i));
+			auto* velocity2 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(j));
+			auto* acceleration1 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(i));
+			auto* acceleration2 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(j));
+			auto* size1 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(i));
+			auto* size2 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(j));
+
+			handleCollision(position1->position, position2->position, velocity1->velocity, velocity2->velocity, acceleration1->acceleration, acceleration2->acceleration, size1->size, size2->size, i, j);
+#endif
+		};
 
 		// Get relevent entities
-		// This has embedded for loops and is likely faster with this method
+#if IMPL != 3
+
 #ifdef GROUPED
 		auto compMask = ecs.getCompMask<c::Transform>();
 #else
@@ -226,30 +291,45 @@ namespace eps
 
 			for (int j = i + 1; j < ecs.getNoOfEntities(); ++j)
 			{
+				// Ensure entity i hasn't died
+				if (ecs.entityIsDead(i))
+					break;
+
 				// Test if correct type of entity
 				if (!ecs.entityHasComponents(j, compMask))
 					continue;
-#ifdef GROUPED
-				// Get components
-				auto* transform1 = ecs.getEntitysComponent<c::Transform>(i);
-				auto* transform2 = ecs.getEntitysComponent<c::Transform>(j);
 
-				handleCollision(transform1->position, transform2->position, transform1->velocity, transform2->velocity, transform1->acceleration, transform2->acceleration, transform1->size, transform2->size, i, j);
-#else
-				// Get components
-				auto* position1 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(i));
-				auto* position2 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(j));
-				auto* velocity1 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(i));
-				auto* velocity2 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(j));
-				auto* acceleration1 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(i));
-				auto* acceleration2 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(j));
-				auto* size1 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(i));
-				auto* size2 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(j));
-
-				handleCollision(position1->position, position2->position, velocity1->velocity, velocity2->velocity, acceleration1->acceleration, acceleration2->acceleration, size1->size, size2->size, i, j);
-#endif
+				processTwoEntities(i, j);
 			}
 		}
+
+#elif IMPL == 3
+
+		const auto groups = ecs.getEntityGroups();
+		for (int i = 0; i < groups.size(); i++)
+		{
+			// This is to loop through each entity 
+			for (int j = groups[i]->startIndex; j <= groups[i]->getEndIndex(); j++)
+			{
+				// Loop through each group so this entity can interact with each other entity
+				for (int k = i; k < groups.size(); k++)
+				{
+					int w = 0;
+					if (k == i)
+						w = j + 1;
+					else
+						w = groups[k]->startIndex;
+
+					// These are all entities that haven't yet been interacted with
+					while (w <= groups[k]->getEndIndex())
+					{
+						processTwoEntities(j, w);
+						w++;
+					}
+				}
+			}
+		}
+#endif
 	}
 
 	static void checkBoundaryCollision(ECS& ecs, sf::RenderWindow* window)
@@ -270,21 +350,8 @@ namespace eps
 				acc *= -1.f;
 			}
 		};
-
-		// Get relevent entities
-#ifdef GROUPED
-		auto compMask = ecs.getCompMask<c::Transform>();
-#else
-		auto compMask = ecs.getCompMask<c::Position, c::Size, c::Acceleration, c::Velocity>();
-#endif
-
-		// Loop through entities
-		for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
+		auto processEntity = [&](EntityID entityID)
 		{
-			// Test if correct type of entity
-			if (!ecs.entityHasComponents(entityID, compMask))
-				continue;
-
 #ifdef GROUPED
 			// Get components
 			auto* transform = ecs.getEntitysComponent<c::Transform>(entityID);
@@ -303,24 +370,55 @@ namespace eps
 			process(position.x, velocity.x, acceleration.x, size.x, window->getSize().x);
 			process(position.y, velocity.y, acceleration.y, size.y, window->getSize().y);
 #endif
-		}
-	}
+		};
 
-	static void renderRectangle(ECS& ecs, float DeltaTime, sf::RenderWindow* window, sf::RectangleShape& rectangle)
-	{
-		//auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::RenderData>();
+		// Get relevent entities
+
 #ifdef GROUPED
 		auto compMask = ecs.getCompMask<c::Transform>();
 #else
-		auto compMask = ecs.getCompMask<c::Position, c::Size>();
+		auto compMask = ecs.getCompMask<c::Position, c::Size, c::Acceleration, c::Velocity>();
 #endif
 
+#if IMPL != 3
+
+		// Loop through entities
 		for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
 		{
 			// Test if correct type of entity
 			if (!ecs.entityHasComponents(entityID, compMask))
 				continue;
 
+			processEntity(entityID);
+		}
+
+#elif IMPL == 3
+
+		for (auto group : ecs.getEntityGroups())
+		{
+			for (int i = group->startIndex; i <= group->getEndIndex(); i++)
+			{
+				processEntity(i);
+			}
+		}
+
+#endif
+	}
+
+	static void renderRectangle(ECS& ecs, float DeltaTime, sf::RenderWindow* window, sf::RectangleShape& rectangle)
+	{
+		//auto entitiesWithComponents = ecs.getEntitiesWithComponents<c::RenderData>();
+#ifdef GROUPED
+		const auto compMask = ecs.getCompMask<c::Transform>();
+#else
+		const auto compMask = ecs.getCompMask<c::Position, c::Size>();
+#endif
+
+		const auto attackerMask = ecs.getCompMask<c::Attacker>();
+		const auto healerMask = ecs.getCompMask<c::Healer>();
+
+		auto processEntity = [&](EntityID entityID)
+		{
 #ifdef GROUPED
 			// Get components
 			auto* transform = ecs.getEntitysComponent<c::Transform>(entityID);
@@ -337,7 +435,39 @@ namespace eps
 			rectangle.setPosition(position);
 			rectangle.setSize(size);
 #endif
+
+			// Process colour 
+			if (ecs.entityHasComponents(entityID, attackerMask))
+				rectangle.setFillColor(sf::Color::Red);
+			else if (ecs.entityHasComponents(entityID, healerMask))
+				rectangle.setFillColor(sf::Color::Green);
+			else
+				rectangle.setFillColor(sf::Color::White);
+
 			window->draw(rectangle);
+		};
+
+#if IMPL != 3
+
+		for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
+		{
+			// Test if correct type of entity
+			if (!ecs.entityHasComponents(entityID, compMask))
+				continue;
+
+			processEntity(entityID);
 		}
+
+#elif IMPL == 3
+
+		for (auto group : ecs.getEntityGroups())
+		{
+			for (int i = group->startIndex; i <= group->getEndIndex(); i++)
+			{
+				processEntity(i);
+			}
+		}
+
+#endif
 	}
 };
