@@ -111,7 +111,7 @@ namespace s
 
 				processEntity(entityID);
 			}
-		}
+		
 
 #elif IMPL == 3
 
@@ -135,10 +135,18 @@ namespace eps
 	static void EntityCollision(ECS& ecs, float DeltaTime, EntityManager* entityManager)
 	{
 		// Lambdas
-		auto healthModification = [&](EntityID id, int16_t amount)
+		auto healthModification = [&](EntityID id, int8_t amount)
 		{
 			auto& health = ecs.getEntitysComponent<c::Health>(id)->health;
+
+			//int before = health;
+
 			health += amount;
+
+			//int after = health;
+
+			//std::cout << "ID: " << id << " Before: " << before << " After: " << after << '\n';
+
 			if (health <= 0)
 			{
 				ecs.destroyEntity(id);		// Destroy entity now
@@ -447,7 +455,7 @@ namespace eps
 			window->draw(rectangle);
 		};
 
-#if IMPL != 3
+#if IMPL < 3
 
 		for (EntityID entityID = 0; entityID < ecs.getNoOfEntities(); entityID++)
 		{

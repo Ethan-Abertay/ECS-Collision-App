@@ -65,7 +65,7 @@ void EntityManager::spawnNormal(ECS& ecs, bool init)
 {
 	const float width = window->getSize().x;
 	const float height = window->getSize().y;
-	constexpr float maxVel = 500.f;
+	constexpr float maxVel = 50.f;
 	constexpr float maxAcc = 25.f;
 	constexpr float minSize = 5.f;
 	constexpr float maxSize = 10.f;

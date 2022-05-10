@@ -36,7 +36,7 @@ private:
 	sf::Font arialFont;
 
 	// Timer variables
-	std::vector<float> deltaTimes;
+	std::vector<std::pair<float, float>> deltaTimes;	// first element is delta time, second element is the total time expired when this frame was called
 
 	// Variables
 	float DeltaTime = 0.f;

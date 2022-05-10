@@ -9,7 +9,7 @@ Application::Application()
 
 	// srand
 	//srand(time(0));
-	srand(0);
+	srand(1);
 
 	// Get Font and text
 	bool result = arialFont.loadFromFile("arial.ttf");
@@ -66,7 +66,7 @@ Application::~Application()
 void Application::run()
 {
 	// Length of time to run test in seconds
-	float testTime = 15;
+	float totalTime = 0.f;
 
 	while (window->isOpen())
 	{
@@ -82,23 +82,23 @@ void Application::run()
 		// Calculate Delta Time - Number of microseconds converted to float then divided by 1,000 twice to get delta time in seconds
 		DeltaTime = (float)(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) / 1000.f / 1000.f;
 
-		// Add delta time to record
-		deltaTimes.push_back(DeltaTime);
-
 		// Calculate fps
 		FPS = 1.f / DeltaTime;
 		
 		// Decrement test time
-		testTime -= DeltaTime;
+		totalTime += DeltaTime;
 
-		// Test if done
-		if (testTime <= 0.f)
+		// Add delta time to record
+		deltaTimes.push_back(std::pair(DeltaTime, totalTime));
+
+		// Test if done (15 seconds)
+		if (totalTime >= 15.f)
 		{
 			// Record output
 			std::ofstream file;
 			file.open("Output.csv");
 			for (auto& f : deltaTimes)
-				file << f << std::endl;
+				file << f.first << ',' << f.second << std::endl;
 			file.close();
 
 			// Close window (hence application)
