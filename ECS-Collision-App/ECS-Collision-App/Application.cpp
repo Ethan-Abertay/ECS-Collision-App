@@ -85,7 +85,7 @@ void Application::run()
 		// Calculate fps
 		FPS = 1.f / DeltaTime;
 		
-		// Decrement test time
+		// Add to total time
 		totalTime += DeltaTime;
 
 		// Add delta time to record

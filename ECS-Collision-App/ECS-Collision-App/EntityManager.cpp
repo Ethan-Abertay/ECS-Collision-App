@@ -90,14 +90,14 @@ void EntityManager::spawnNormal(ECS& ecs, bool init)
 #else
 	EntityID id(-1);
 	if (init)
-		id = ecs->init_CreateEntity<c::Position, c::Acceleration, c::Size, c::Velocity, c::Health>();
+		id = ecs.init_CreateEntity<c::Position, c::Acceleration, c::Size, c::Velocity, c::Health>();
 	else
-		id = ecs->createEntity<c::Position, c::Acceleration, c::Size, c::Velocity, c::Health>();
+		id = ecs.createEntity<c::Position, c::Acceleration, c::Size, c::Velocity, c::Health>();
 
 	// Randomize data
-	ecs->getEntitysComponent<c::Position>(id)->position = sf::Vector2f(randRange(0, width), randRange(0, height));
-	ecs->getEntitysComponent<c::Velocity>(id)->velocity = sf::Vector2f(randRange(-maxVel, maxVel), randRange(-maxVel, maxVel));
-	ecs->getEntitysComponent<c::Size>(id)->size = sf::Vector2f(randRange(minSize, maxSize), randRange(minSize, maxSize));
+	ecs.getEntitysComponent<c::Position>(id)->position = sf::Vector2f(randRange(0, width), randRange(0, height));
+	ecs.getEntitysComponent<c::Velocity>(id)->velocity = sf::Vector2f(randRange(-maxVel, maxVel), randRange(-maxVel, maxVel));
+	ecs.getEntitysComponent<c::Size>(id)->size = sf::Vector2f(randRange(minSize, maxSize), randRange(minSize, maxSize));
 #endif
 
 	// Process more component data
@@ -135,14 +135,14 @@ void EntityManager::spawnHealer(ECS& ecs, bool init)
 #else
 	EntityID id(-1);
 	if (init)
-		id = ecs->init_CreateEntity<c::Position, c::Acceleration, c::Size, c::Velocity>();
+		id = ecs.init_CreateEntity<c::Position, c::Acceleration, c::Size, c::Velocity, c::Healer>();
 	else
-		id = ecs->createEntity<c::Position, c::Acceleration, c::Size, c::Velocity>();
+		id = ecs.createEntity<c::Position, c::Acceleration, c::Size, c::Velocity, c::Healer>();
 
 	// Randomize data
-	ecs->getEntitysComponent<c::Position>(id)->position = sf::Vector2f(randRange(0, width), randRange(0, height));
-	ecs->getEntitysComponent<c::Velocity>(id)->velocity = sf::Vector2f(randRange(-maxVel, maxVel), randRange(-maxVel, maxVel));
-	ecs->getEntitysComponent<c::Size>(id)->size = sf::Vector2f(randRange(minSize, maxSize), randRange(minSize, maxSize));
+	ecs.getEntitysComponent<c::Position>(id)->position = sf::Vector2f(randRange(0, width), randRange(0, height));
+	ecs.getEntitysComponent<c::Velocity>(id)->velocity = sf::Vector2f(randRange(-maxVel, maxVel), randRange(-maxVel, maxVel));
+	ecs.getEntitysComponent<c::Size>(id)->size = sf::Vector2f(randRange(minSize, maxSize), randRange(minSize, maxSize));
 #endif
 
 	// Process more component data
@@ -181,14 +181,14 @@ void EntityManager::spawnAttacker(ECS& ecs, bool init)
 #else
 	EntityID id(-1);
 	if (init)
-		id = ecs->init_CreateEntity<c::Position, c::Acceleration, c::Size, c::Velocity, c::Health, c::Attacker>();
+		id = ecs.init_CreateEntity<c::Position, c::Acceleration, c::Size, c::Velocity, c::Health, c::Attacker>();
 	else
-		id = ecs->createEntity<c::Position, c::Acceleration, c::Size, c::Velocity, c::Health, c::Attacker>();
+		id = ecs.createEntity<c::Position, c::Acceleration, c::Size, c::Velocity, c::Health, c::Attacker>();
 
 	// Randomize data
-	ecs->getEntitysComponent<c::Position>(id)->position = sf::Vector2f(randRange(0, width), randRange(0, height));
-	ecs->getEntitysComponent<c::Velocity>(id)->velocity = sf::Vector2f(randRange(-maxVel, maxVel), randRange(-maxVel, maxVel));
-	ecs->getEntitysComponent<c::Size>(id)->size = sf::Vector2f(randRange(minSize, maxSize), randRange(minSize, maxSize));
+	ecs.getEntitysComponent<c::Position>(id)->position = sf::Vector2f(randRange(0, width), randRange(0, height));
+	ecs.getEntitysComponent<c::Velocity>(id)->velocity = sf::Vector2f(randRange(-maxVel, maxVel), randRange(-maxVel, maxVel));
+	ecs.getEntitysComponent<c::Size>(id)->size = sf::Vector2f(randRange(minSize, maxSize), randRange(minSize, maxSize));
 #endif
 
 	// Process more component data

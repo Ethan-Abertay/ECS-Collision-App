@@ -7,7 +7,7 @@
 // or, if undefined, to run as seperate components
 // This is application specific, not ECS library
 #define GROUPED
-//#undef GROUPED
+#undef GROUPED
 
 // c for components
 namespace c
@@ -269,14 +269,14 @@ namespace eps
 			handleCollision(transform1->position, transform2->position, transform1->velocity, transform2->velocity, transform1->acceleration, transform2->acceleration, transform1->size, transform2->size, i, j);
 #else
 			// Get components
-			auto* position1 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(i));
-			auto* position2 = ecs.getEntitysComponent<c::Position>(entitiesWithComponents->at(j));
-			auto* velocity1 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(i));
-			auto* velocity2 = ecs.getEntitysComponent<c::Velocity>(entitiesWithComponents->at(j));
-			auto* acceleration1 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(i));
-			auto* acceleration2 = ecs.getEntitysComponent<c::Acceleration>(entitiesWithComponents->at(j));
-			auto* size1 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(i));
-			auto* size2 = ecs.getEntitysComponent<c::Size>(entitiesWithComponents->at(j));
+			auto* position1 = ecs.getEntitysComponent<c::Position>(i);
+			auto* position2 = ecs.getEntitysComponent<c::Position>(j);
+			auto* velocity1 = ecs.getEntitysComponent<c::Velocity>(i);
+			auto* velocity2 = ecs.getEntitysComponent<c::Velocity>(j);
+			auto* acceleration1 = ecs.getEntitysComponent<c::Acceleration>(i);
+			auto* acceleration2 = ecs.getEntitysComponent<c::Acceleration>(j);
+			auto* size1 = ecs.getEntitysComponent<c::Size>(i);
+			auto* size2 = ecs.getEntitysComponent<c::Size>(j);
 
 			handleCollision(position1->position, position2->position, velocity1->velocity, velocity2->velocity, acceleration1->acceleration, acceleration2->acceleration, size1->size, size2->size, i, j);
 #endif
